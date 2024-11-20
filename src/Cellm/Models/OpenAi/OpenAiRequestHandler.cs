@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.ClientModel;
+using System.ClientModel.Primitives;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -7,7 +8,9 @@ using Cellm.AddIn.Exceptions;
 using Cellm.Models.OpenAi.Models;
 using Cellm.Prompts;
 using Cellm.Tools;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
+using OpenAI;
 
 namespace Cellm.Models.OpenAi;
 
@@ -38,18 +41,21 @@ internal class OpenAiRequestHandler : IModelRequestHandler<OpenAiRequest, OpenAi
         const string path = "/v1/chat/completions";
         var address = request.BaseAddress is null ? new Uri(path, UriKind.Relative) : new Uri(request.BaseAddress, path);
 
-        var json = Serialize(request);
-        var jsonAsStringContent = new StringContent(json, Encoding.UTF8, "application/json");
+        // Must instantiate manually because injected OpenAIClient does not allow setting endpoint per-call
+        var openAiClientCredentials = new ApiKeyCredential(_openAiConfiguration.ApiKey);
+        var openAiClientOptions = new OpenAIClientOptions { 
+            Transport = new HttpClientPipelineTransport(_httpClient), 
+            Endpoint = address };
 
-        var response = await _httpClient.PostAsync(address, jsonAsStringContent, cancellationToken);
-        var responseBodyAsString = await response.Content.ReadAsStringAsync(cancellationToken);
+        var chatClient = new OpenAIClient(openAiClientCredentials, openAiClientOptions)
+            .AsChatClient(request.Prompt.Options.ModelId ?? throw new CellmException($"{nameof(request.Prompt.Options.ModelId)} was null"));
+        var chatCompletion = await chatClient.CompleteAsync(request.Prompt.Messages, request.Prompt.Options, cancellationToken);
 
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new HttpRequestException($"{nameof(OpenAiRequest)} failed: {responseBodyAsString}", null, response.StatusCode);
-        }
+        // Do not mutate request.Prompt
+        var messages = new List<ChatMessage>(request.Prompt.Messages) { chatCompletion.Message };
+        var options = request.Prompt.Options.Clone();
 
-        return Deserialize(request, responseBodyAsString);
+        return new OpenAiResponse(new Prompt(messages, options));
     }
 
     public string Serialize(OpenAiRequest request)

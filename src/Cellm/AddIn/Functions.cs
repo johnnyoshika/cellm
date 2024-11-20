@@ -121,7 +121,8 @@ public static class Functions
         {
             var client = ServiceLocator.Get<Client>();
             var response = await client.Send(prompt, provider, baseAddress);
-            var content = response.Messages.Last().Content;
+            var content = response.Messages.Last().Text;
+
             return content;
         }
         catch (CellmException ex)

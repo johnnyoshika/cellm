@@ -1,6 +1,7 @@
 ﻿using Cellm.Prompts;
 using Cellm.Tools;
 using MediatR;
+using Microsoft.Extensions.AI;
 
 namespace Cellm.Models.PipelineBehavior;
 
@@ -21,9 +22,9 @@ internal class ToolBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, T
     {
         var response = await next();
 
-        var toolCalls = response.Prompt.Messages.LastOrDefault()?.ToolCalls;
+        var message = response.Prompt.Messages.Last();
 
-        if (toolCalls is not null)
+        if (message.Contents.Single() is FunctionCallContent)
         {
             // Model called tools, run tools and call model again
             var message = await RunTools(toolCalls);

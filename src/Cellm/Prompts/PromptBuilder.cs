@@ -1,4 +1,5 @@
 ﻿using Cellm.AddIn.Exceptions;
+using Microsoft.Extensions.AI;
 
 namespace Cellm.Prompts;
 
@@ -6,7 +7,8 @@ public class PromptBuilder
 {
     private string? _model;
     private string? _systemMessage;
-    private List<Message> _messages = new();
+    private List<ChatMessage> _messages = new();
+    private ChatOptions _options;
     private double? _temperature;
     private List<Tool> _tools = new();
 
@@ -16,10 +18,8 @@ public class PromptBuilder
 
     public PromptBuilder(Prompt prompt)
     {
-        _model = prompt.Model;
-        _systemMessage = prompt.SystemMessage;
-        _messages = prompt.Messages;
-        _temperature = prompt.Temperature;
+        _messages = new List<ChatMessage>(prompt.Messages);
+        _options = prompt.Options.Clone();
     }
 
     public PromptBuilder SetModel(string model)

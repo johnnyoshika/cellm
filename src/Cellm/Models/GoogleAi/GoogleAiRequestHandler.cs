@@ -30,7 +30,7 @@ internal class GoogleAiRequestHandler : IModelRequestHandler<GoogleAiRequest, Go
 
     public async Task<GoogleAiResponse> Handle(GoogleAiRequest request, CancellationToken cancellationToken)
     {
-        string path = $"/v1beta/models/{request.Prompt.Model ?? _googleAiConfiguration.DefaultModel}:generateContent?key={_googleAiConfiguration.ApiKey}";
+        string path = $"/v1beta/models/{request.Prompt.Options.ModelId ?? _googleAiConfiguration.DefaultModel}:generateContent?key={_googleAiConfiguration.ApiKey}";
         var address = request.BaseAddress is null ? new Uri(path, UriKind.Relative) : new Uri(request.BaseAddress, path);
 
         var json = Serialize(request);
