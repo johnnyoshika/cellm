@@ -3,7 +3,7 @@
 public enum Providers
 {
     Anthropic,
-    GoogleAi,
     Llamafile,
+    Ollama,
     OpenAi
 }

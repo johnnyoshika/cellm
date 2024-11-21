@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using Cellm.AddIn.Exceptions;
+using Cellm.Prompts;
 using ExcelDna.Integration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Office.Interop.Excel;
@@ -8,7 +9,7 @@ namespace Cellm.AddIn;
 
 public record Arguments(string Provider, string Model, string Context, string Instructions, double Temperature);
 
-public class PromptWithArgumentParser
+public class PromptArgumentParser
 {
     private string? _provider;
     private string? _model;
@@ -18,12 +19,12 @@ public class PromptWithArgumentParser
 
     private readonly IConfiguration _configuration;
 
-    public PromptWithArgumentParser(IConfiguration configuration)
+    public PromptArgumentParser(IConfiguration configuration)
     {
         _configuration = configuration;
     }
 
-    public PromptWithArgumentParser AddProvider(object providerAndModel)
+    public PromptArgumentParser AddProvider(object providerAndModel)
     {
         _provider = providerAndModel switch
         {
@@ -35,7 +36,7 @@ public class PromptWithArgumentParser
         return this;
     }
 
-    public PromptWithArgumentParser AddModel(object providerAndModel)
+    public PromptArgumentParser AddModel(object providerAndModel)
     {
         _model = providerAndModel switch
         {
@@ -47,21 +48,21 @@ public class PromptWithArgumentParser
         return this;
     }
 
-    public PromptWithArgumentParser AddInstructionsOrContext(object instructionsOrContext)
+    public PromptArgumentParser AddInstructionsOrContext(object instructionsOrContext)
     {
         _instructionsOrContext = instructionsOrContext;
 
         return this;
     }
 
-    public PromptWithArgumentParser AddInstructionsOrTemperature(object instructionsOrTemperature)
+    public PromptArgumentParser AddInstructionsOrTemperature(object instructionsOrTemperature)
     {
         _instructionsOrTemperature = instructionsOrTemperature;
 
         return this;
     }
 
-    public PromptWithArgumentParser AddTemperature(object temperature)
+    public PromptArgumentParser AddTemperature(object temperature)
     {
         _temperature = temperature;
 
@@ -110,7 +111,7 @@ public class PromptWithArgumentParser
 
     private static string GetProvider(string providerAndModel)
     {
-        var index = providerAndModel.IndexOf("/");
+        var index = providerAndModel.IndexOf('/');
 
         if (index < 0)
         {
@@ -122,7 +123,7 @@ public class PromptWithArgumentParser
 
     private static string GetModel(string providerAndModel)
     {
-        var index = providerAndModel.IndexOf("/");
+        var index = providerAndModel.IndexOf('/');
 
         if (index < 0)
         {

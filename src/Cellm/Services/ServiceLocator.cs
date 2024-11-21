@@ -3,10 +3,9 @@ using Cellm.AddIn;
 using Cellm.AddIn.Exceptions;
 using Cellm.Models;
 using Cellm.Models.Anthropic;
-using Cellm.Models.GoogleAi;
 using Cellm.Models.Llamafile;
 using Cellm.Models.OpenAi;
-using Cellm.Models.PipelineBehavior;
+using Cellm.Models.ModelRequestBehavior;
 using Cellm.Services.Configuration;
 using Cellm.Tools;
 using Cellm.Tools.FileReader;
@@ -16,6 +15,8 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Cellm.Models.Ollama;
+using Cellm.Models.Local;
 
 namespace Cellm.Services;
 
@@ -47,7 +48,7 @@ internal static class ServiceLocator
         services
             .Configure<CellmConfiguration>(configuration.GetRequiredSection(nameof(CellmConfiguration)))
             .Configure<AnthropicConfiguration>(configuration.GetRequiredSection(nameof(AnthropicConfiguration)))
-            .Configure<GoogleAiConfiguration>(configuration.GetRequiredSection(nameof(GoogleAiConfiguration)))
+            .Configure<OllamaConfiguration>(configuration.GetRequiredSection(nameof(OllamaConfiguration)))
             .Configure<OpenAiConfiguration>(configuration.GetRequiredSection(nameof(OpenAiConfiguration)))
             .Configure<LlamafileConfiguration>(configuration.GetRequiredSection(nameof(LlamafileConfiguration)))
             .Configure<RateLimiterConfiguration>(configuration.GetRequiredSection(nameof(RateLimiterConfiguration)))
@@ -87,16 +88,21 @@ internal static class ServiceLocator
         // Internals
         services
             .AddSingleton(configuration)
-            .AddMemoryCache()
             .AddMediatR(cfg => cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()))
-            .AddTransient<PromptWithArgumentParser>()
+            .AddTransient<PromptArgumentParser>()
             .AddSingleton<Client>()
-            .AddSingleton<Serde>();
+            .AddSingleton<Serde>()
+            .AddSingleton<LocalUtilities>()
+            .AddSingleton<ProcessManager>(); ;
+
+#pragma warning disable EXTEXP0018 // Type is for evaluation purposes only and is subject to change or removal in future updates.
+        services
+            .AddHybridCache();
+#pragma warning restore EXTEXP0018 // Type is for evaluation purposes only and is subject to change or removal in future updates.
 
         // Tools
         services
-            .AddSingleton<ToolRunner>()
-            .AddSingleton<ToolFactory>()
+            .AddSingleton<Functions>()
             .AddSingleton<FileReaderFactory>()
             .AddSingleton<IFileReader, PdfReader>()
             .AddSingleton<IFileReader, TextReader>();
@@ -125,14 +131,14 @@ internal static class ServiceLocator
             anthropicHttpClient.Timeout = TimeSpan.FromHours(1);
         }).AddResilienceHandler($"{nameof(AnthropicRequestHandler)}ResiliencePipeline", resiliencePipelineConfigurator.ConfigureResiliencePipeline);
 
-        var googleAiConfiguration = configuration.GetRequiredSection(nameof(GoogleAiConfiguration)).Get<GoogleAiConfiguration>()
-            ?? throw new NullReferenceException(nameof(GoogleAiConfiguration));
+        var ollamaConfiguration = configuration.GetRequiredSection(nameof(OllamaConfiguration)).Get<OllamaConfiguration>()
+            ?? throw new NullReferenceException(nameof(OllamaConfiguration));
 
-        services.AddHttpClient<IRequestHandler<GoogleAiRequest, GoogleAiResponse>, GoogleAiRequestHandler>(googleHttpClient =>
+        services.AddHttpClient<IRequestHandler<OllamaRequest, OllamaResponse>, OllamaRequestHandler>(ollamaHttpClient =>
         {
-            googleHttpClient.BaseAddress = googleAiConfiguration.BaseAddress;
-            googleHttpClient.Timeout = TimeSpan.FromHours(1);
-        }).AddResilienceHandler($"{nameof(GoogleAiRequestHandler)}ResiliencePipeline", resiliencePipelineConfigurator.ConfigureResiliencePipeline);
+            ollamaHttpClient.BaseAddress = ollamaConfiguration.BaseAddress;
+            ollamaHttpClient.Timeout = TimeSpan.FromHours(1);
+        }).AddResilienceHandler($"{nameof(OllamaRequestHandler)}ResiliencePipeline", resiliencePipelineConfigurator.ConfigureResiliencePipeline);
 
         var openAiConfiguration = configuration.GetRequiredSection(nameof(OpenAiConfiguration)).Get<OpenAiConfiguration>()
             ?? throw new NullReferenceException(nameof(OpenAiConfiguration));
@@ -143,10 +149,6 @@ internal static class ServiceLocator
             openAiHttpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {openAiConfiguration.ApiKey}");
             openAiHttpClient.Timeout = TimeSpan.FromHours(1);
         }).AddResilienceHandler($"{nameof(OpenAiRequestHandler)}ResiliencePipeline", resiliencePipelineConfigurator.ConfigureResiliencePipeline);
-
-        services
-            .AddSingleton<LlamafileRequestHandler>()
-            .AddSingleton<LLamafileProcessManager>();
 
         // Model request pipeline
         services

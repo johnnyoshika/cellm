@@ -1,19 +1,19 @@
 ﻿using Cellm.Services.Configuration;
 
-namespace Cellm.Models.GoogleAi;
+namespace Cellm.Models.Ollama;
 
-internal class GoogleAiConfiguration : IProviderConfiguration
+internal class OllamaConfiguration : IProviderConfiguration
 {
+    public Uri OllamaUri { get; init; }
+
     public Uri BaseAddress { get; init; }
 
     public string DefaultModel { get; init; }
 
-    public string ApiKey { get; init; }
-
-    public GoogleAiConfiguration()
+    public OllamaConfiguration()
     {
+        OllamaUri = default!;
         BaseAddress = default!;
         DefaultModel = default!;
-        ApiKey = default!;
     }
 }
